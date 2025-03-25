@@ -1,0 +1,276 @@
+Parsing and extracting key fields from MX messages using PL/SQL involves multiple steps, including XML parsing, using Oracle XML functions, and extracting required fields.
+
+Step-by-Step Example
+1. Understand MX Message Structure
+MX messages are XML-based financial messages following the ISO 20022 standard. For this example, we consider a sample pain.001 (customer credit transfer) message:
+
+xml
+Copy
+Edit
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.09">
+    <CstmrCdtTrfInitn>
+        <GrpHdr>
+            <MsgId>12345</MsgId>
+            <CreDtTm>2025-03-25T12:00:00</CreDtTm>
+        </GrpHdr>
+        <PmtInf>
+            <PmtInfId>Pmt001</PmtInfId>
+            <Dbtr>
+                <Nm>John Doe</Nm>
+            </Dbtr>
+            <DbtrAcct>
+                <Id>
+                    <IBAN>DE89370400440532013000</IBAN>
+                </Id>
+            </DbtrAcct>
+            <Cdtr>
+                <Nm>Jane Smith</Nm>
+            </Cdtr>
+            <CdtrAcct>
+                <Id>
+                    <IBAN>FR7630006000011234567890189</IBAN>
+                </Id>
+            </CdtrAcct>
+            <Amt>
+                <InstdAmt Ccy="EUR">1000.00</InstdAmt>
+            </Amt>
+        </PmtInf>
+    </CstmrCdtTrfInitn>
+</Document>
+2. Create a Table to Store MX Messages
+sql
+Copy
+Edit
+CREATE TABLE mx_messages (
+    id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    message CLOB
+);
+3. Insert Sample MX Message
+sql
+Copy
+Edit
+INSERT INTO mx_messages (message) VALUES (
+    '<?xml version="1.0"?>
+    <Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.09">
+        <CstmrCdtTrfInitn>
+            <GrpHdr>
+                <MsgId>12345</MsgId>
+                <CreDtTm>2025-03-25T12:00:00</CreDtTm>
+            </GrpHdr>
+            <PmtInf>
+                <PmtInfId>Pmt001</PmtInfId>
+                <Dbtr>
+                    <Nm>John Doe</Nm>
+                </Dbtr>
+                <DbtrAcct>
+                    <Id>
+                        <IBAN>DE89370400440532013000</IBAN>
+                    </Id>
+                </DbtrAcct>
+                <Cdtr>
+                    <Nm>Jane Smith</Nm>
+                </Cdtr>
+                <CdtrAcct>
+                    <Id>
+                        <IBAN>FR7630006000011234567890189</IBAN>
+                    </Id>
+                </CdtrAcct>
+                <Amt>
+                    <InstdAmt Ccy="EUR">1000.00</InstdAmt>
+                </Amt>
+            </PmtInf>
+        </CstmrCdtTrfInitn>
+    </Document>'
+);
+COMMIT;
+4. Parse and Extract Key Fields Using PL/SQL
+sql
+Copy
+Edit
+DECLARE
+    v_xml       CLOB;
+    v_msg_id    VARCHAR2(50);
+    v_debtor    VARCHAR2(100);
+    v_creditor  VARCHAR2(100);
+    v_debtor_iban VARCHAR2(34);
+    v_creditor_iban VARCHAR2(34);
+    v_amount    NUMBER;
+    v_currency  VARCHAR2(3);
+BEGIN
+    -- Fetch the XML message from table
+    SELECT message INTO v_xml FROM mx_messages WHERE id = 1;
+
+    -- Extract fields using XMLTable
+    SELECT msg_id, debtor, debtor_iban, creditor, creditor_iban, amount, currency
+    INTO v_msg_id, v_debtor, v_debtor_iban, v_creditor, v_creditor_iban, v_amount, v_currency
+    FROM XMLTable(
+        xmlnamespaces(default 'urn:iso:std:iso:20022:tech:xsd:pain.001.001.09'),
+        '/Document/CstmrCdtTrfInitn'
+        PASSING XMLTYPE(v_xml)
+        COLUMNS
+            msg_id        VARCHAR2(50)  PATH 'GrpHdr/MsgId',
+            debtor        VARCHAR2(100) PATH 'PmtInf/Dbtr/Nm',
+            debtor_iban   VARCHAR2(34)  PATH 'PmtInf/DbtrAcct/Id/IBAN',
+            creditor      VARCHAR2(100) PATH 'PmtInf/Cdtr/Nm',
+            creditor_iban VARCHAR2(34)  PATH 'PmtInf/CdtrAcct/Id/IBAN',
+            amount        NUMBER        PATH 'PmtInf/Amt/InstdAmt',
+            currency      VARCHAR2(3)   PATH 'PmtInf/Amt/InstdAmt/@Ccy'
+    );
+
+    -- Output extracted data
+    DBMS_OUTPUT.PUT_LINE('Message ID: ' || v_msg_id);
+    DBMS_OUTPUT.PUT_LINE('Debtor: ' || v_debtor);
+    DBMS_OUTPUT.PUT_LINE('Debtor IBAN: ' || v_debtor_iban);
+    DBMS_OUTPUT.PUT_LINE('Creditor: ' || v_creditor);
+    DBMS_OUTPUT.PUT_LINE('Creditor IBAN: ' || v_creditor_iban);
+    DBMS_OUTPUT.PUT_LINE('Amount: ' || v_amount || ' ' || v_currency);
+END;
+/
+5. Explanation of the Query
+XMLTYPE(v_xml) → Converts the CLOB message into an XML data type for processing.
+
+XMLTable() → Parses the XML using XPath expressions and extracts key fields.
+
+xmlnamespaces() → Defines the XML namespace for proper extraction.
+
+PATH clauses → Used to extract data from specific elements.
+
+DBMS_OUTPUT.PUT_LINE() → Prints the extracted values for verification.
+
+Expected Output in SQL Developer
+yaml
+Copy
+Edit
+Message ID: 12345
+Debtor: John Doe
+Debtor IBAN: DE89370400440532013000
+Creditor: Jane Smith
+Creditor IBAN: FR7630006000011234567890189
+Amount: 1000.00 EUR
+
+===========================================================================
+CREATE TABLE MX_MESSAGES_new (
+    message_id NUMBER PRIMARY KEY,
+    message_content CLOB
+)
+
+INSERT INTO MX_MESSAGES (message_id, message_content) 
+VALUES (1, '<?xml version="1.0" encoding = "UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.02">
+    <FIToFICstmrCdtTrf>
+        <GrpHdr>
+            <MsgId>ABC123456</MsgId>
+            <CreDtTm>2025-03-25T12:00:00</CreDtTm>
+        </GrpHdr>
+        <CdtTrfTxInf>
+            <PmtId>
+                <InstrId>INSTR123</InstrId>
+                <EndToEndId>E2E123</EndToEndId>
+            </PmtId>
+            <Amt>
+                <InstdAmt Ccy="USD">1000.00</InstdAmt>
+            </Amt>
+        </CdtTrfTxInf>
+    </FIToFICstmrCdtTrf>
+</Document>')
+
+VALIDATING THE MX MESSAGES
+
+DECLARE
+    v_xml CLOB;
+    v_msg_id VARCHAR2(50);
+    v_credttime VARCHAR2(200);
+    v_instr_id VARCHAR2(200);
+    v_end_to_end_id VARCHAR2(200);
+    v_currency VARCHAR2(10);
+    v_amount NUMBER;
+    v_errors VARCHAR2(4000) := '';
+
+BEGIN 
+    -- Fetch XML message from the table
+    SELECT message_content INTO v_xml FROM MX_MESSAGES_NEW WHERE MESSAGE_ID = 1;
+
+    -- Extract fields using XMLTable
+    SELECT msg_id, credtime, instr_id, endtoendid, currency, amount
+    INTO v_msg_id, v_credttime, v_instr_id, v_end_to_end_id, v_currency, v_amount
+    FROM XMLTable(
+        xmlnamespaces(default 'urn:iso:std:iso:20022:tech:xsd:pacs.008.001.02'),
+        '/Document/FIToFICstmrCdtTrf'
+        PASSING XMLTYPE(v_xml)
+        COLUMNS 
+            msg_id       VARCHAR2(50)  PATH 'GrpHdr/MsgId',
+            credtime     VARCHAR2(50)  PATH 'GrpHdr/CreDtTm',
+            instr_id     VARCHAR2(200) PATH 'CdtTrfTxInf/PmtId/InstrId',
+            endtoendid   VARCHAR2(200) PATH 'CdtTrfTxInf/PmtId/EndToEndId',
+            currency     VARCHAR2(10)  PATH 'CdtTrfTxInf/Amt/InstdAmt/@Ccy',
+            amount       NUMBER        PATH 'CdtTrfTxInf/Amt/InstdAmt'
+    );
+
+    -- Validation Checks
+    IF v_msg_id IS NULL OR LENGTH(v_msg_id) < 5 THEN
+        v_errors := v_errors || 'Invalid message id; ';
+    END IF;
+
+    IF v_credttime IS NULL OR INSTR(v_credttime, 'T') = 0 THEN
+        v_errors := v_errors || 'Invalid credit time format; ';
+    END IF;
+
+    IF v_instr_id IS NULL THEN
+        v_errors := v_errors || 'Instr Id is missing; ';
+    END IF;
+
+    IF v_end_to_end_id IS NULL THEN
+       v_errors := v_errors || 'End to End Id is missing; ';
+    END IF;
+
+    IF v_currency NOT IN ('USD', 'EUR', 'GBP') THEN
+       v_errors := v_errors || 'Unsupported currency; ';
+    END IF;
+
+    IF v_amount IS NULL OR v_amount <= 0 THEN
+       v_errors := v_errors || 'INVALID AMOUNT; ';
+    END IF;
+
+    -- Output Results
+    IF v_errors IS NULL THEN
+       DBMS_OUTPUT.PUT_LINE('VALIDATION SUCCESSFUL');
+       DBMS_OUTPUT.PUT_LINE('MESSAGE ID: ' || v_msg_id)3B
+       DBMS_OUTPUT.PUT_LINE('Credit Time: ' || v_credttime);
+       DBMS_OUTPUT.PUT_LINE('Instruction Id: ' || v_instr_id);
+       DBMS_OUTPUT.PUT_LINE('End to End Id: ' || v_end_to_end_id);
+       DBMS_OUTPUT.PUT_LINE('Currency: ' || v_currency);
+       DBMS_OUTPUT.PUT_LINE('Amount: ' || v_amount);
+    ELSE
+       DBMS_OUTPUT.PUT_LINE('VALIDATION FAILED: ' || v_errors);
+    END IF;
+
+END;
+/
+
+
+===========================================================================================================
+5.Implementing Business Rules for MX Message Validation
+
+4 Storing and Retrieving MX Messages in Oracle PL SQL
+
+1.Database Schema Design for Storing MX Messages
+2.Best Practices for Handling Large XML Data in Oracle Databases
+3.Parsing and Extracting Key Fields from MX Messages Using PL SQL
+4.Storing Message Audit Logs for Compliance and Reporting
+5.Querying XML Data Efficiently in Oracle Using SQL/XML Functions
+6.Handling MX Message Errors and Rollback Strategies in PL SQL
+7.Using PL SQL Stored Procedures for Automated MX Processing
+8.Performance Tuning for High-Volume MX Message Transactions
+9.Real-Time Reporting and Monitoring of MX Transactions in Oracle
+10.Case Study: Optimizing MX Message Storage and Retrieval
+
+java 
+8.Performance Optimization for High-Throughput MX Message APIs
+Deployment Considerations for Secure MX Message Processing APIs
+1.Unit Testing for MX Message Parsing in Java
+2.Writing Integration Tests for MX Message API Endpoints
+3.Using Mock Services to Simulate SWIFT MX Transactions
+4.Automating Schema Validation Tests for MX Messages
+5.Debugging MX Message Parsing Errors in Java
+6.Load Testing for High-Volume MX Message Processing Systems
+Best Practices for Logging and Tracing Errors in MX Transactions

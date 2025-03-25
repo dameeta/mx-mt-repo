@@ -1,0 +1,169 @@
+example of how to use MX Build in a Java Spring Boot application to convert Java objects to XML.
+
+Steps:
+Set Up a Spring Boot Project
+
+Use Spring Initializr to generate a project with Spring Web and Jackson Dataformat XML.
+
+Add Dependencies
+
+Include MX Build and Jackson XML in pom.xml.
+
+Create a Java Model Class
+
+Annotate it for XML binding.
+
+Create a Service to Convert Java to XML
+
+Use MX Build to serialize Java objects.
+
+Create a REST Controller
+
+Expose an API to return XML responses.
+
+1. Create a Spring Boot Project
+Generate a Spring Boot project with Spring Web and Jackson Dataformat XML.
+
+2. Add Dependencies
+In pom.xml, add the required dependencies:
+
+xml
+
+
+<dependencies>
+    <!-- Spring Boot Starter Web -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <!-- Jackson XML for Java-to-XML conversion -->
+    <dependency>
+        <groupId>com.fasterxml.jackson.dataformat</groupId>
+        <artifactId>jackson-dataformat-xml</artifactId>
+    </dependency>
+
+    <!-- MX Build Dependency -->
+    <dependency>
+        <groupId>com.mendix</groupId>
+        <artifactId>mxbuild</artifactId>
+        <version>latest-version</version>
+    </dependency>
+
+    <!-- Spring Boot Starter Test -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-test</artifactId>
+        <scope>test</scope>
+    </dependency>
+</dependencies>
+3. Create a Java Model Class
+Define a model class and annotate it for XML conversion.
+
+java
+
+
+package com.example.mxbuilder.model;
+
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
+
+@JacksonXmlRootElement(localName = "Employee")
+public class Employee {
+    private String id;
+    private String name;
+    private String department;
+
+    public Employee() {}
+
+    public Employee(String id, String name, String department) {
+        this.id = id;
+        this.name = name;
+        this.department = department;
+    }
+
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
+
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+
+    public String getDepartment() { return department; }
+    public void setDepartment(String department) { this.department = department; }
+}
+4. Create a Service to Convert Java to XML
+Use ObjectMapper from Jackson XML.
+
+java
+
+
+package com.example.mxbuilder.service;
+
+import com.example.mxbuilder.model.Employee;
+import com.fasterxml.jackson.dataformat.xml.XmlMapper;
+import org.springframework.stereotype.Service;
+
+@Service
+public class EmployeeXmlService {
+
+    private final XmlMapper xmlMapper;
+
+    public EmployeeXmlService() {
+        this.xmlMapper = new XmlMapper();
+    }
+
+    public String convertToXml(Employee employee) {
+        try {
+            return xmlMapper.writeValueAsString(employee);
+        } catch (Exception e) {
+            throw new RuntimeException("Error converting to XML", e);
+        }
+    }
+}
+5. Create a REST Controller
+Expose an endpoint that returns XML.
+
+java
+
+
+package com.example.mxbuilder.controller;
+
+import com.example.mxbuilder.model.Employee;
+import com.example.mxbuilder.service.EmployeeXmlService;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/employees")
+public class EmployeeController {
+
+    private final EmployeeXmlService employeeXmlService;
+
+    public EmployeeController(EmployeeXmlService employeeXmlService) {
+        this.employeeXmlService = employeeXmlService;
+    }
+
+    @GetMapping(value = "/xml", produces = "application/xml")
+    public String getEmployeeAsXml() {
+        Employee employee = new Employee("101", "John Doe", "Engineering");
+        return employeeXmlService.convertToXml(employee);
+    }
+}
+6. Run the Application
+Start your Spring Boot app and access the endpoint:
+
+bash
+
+
+http://localhost:8080/api/employees/xml
+Expected XML Output:
+xml
+
+
+<Employee>
+    <id>101</id>
+    <name>John Doe</name>
+    <department>Engineering</department>
+</Employee>
+Conclusion
+You’ve successfully built a Spring Boot application that converts Java objects to XML using MX Build (Jackson XML
