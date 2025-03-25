@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.08">
+    <FIToFICustomerCreditTransfer>
+        <MessageID>MSG123456</MessageID>
+        <CreationDateTime>2025-03-25T10:15:30</CreationDateTime>
+        <NumberOfTransactions>1</NumberOfTransactions>
+        <TransactionDetails>
+            <TransactionID>TXN987654</TransactionID>
+            <Amount>jjh</Amount>
+            <Currency>USD</Currency>
+            <Debtor>John Doe</Debtor>
+            <Creditor>Jane Smith</Creditor>
+        </TransactionDetails>
+    </FIToFICustomerCreditTransfer>
+</Document>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            targetNamespace="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.08"
+            xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.08"
+            elementFormDefault="qualified">
+    <xsd:element name="Document">
+        <xsd:complexType>
+            <xsd:sequence>
+                <xsd:element name="FIToFICustomerCreditTransfer" type="CreditTransferType"/>
+            </xsd:sequence>
+        </xsd:complexType>
+    </xsd:element>
+
+    <xsd:complexType name="CreditTransferType">
+        <xsd:sequence>
+            <xsd:element name="MessageID" type="xsd:string"/>
+            <xsd:element name="CreationDateTime" type="xsd:dateTime"/>
+            <xsd:element name="NumberOfTransactions" type="xsd:int"/>
+            <xsd:element name="TransactionDetails" type="TransactionType"/>
+        </xsd:sequence>
+    </xsd:complexType>
+
+    <xsd:complexType name="TransactionType">
+        <xsd:sequence>
+            <xsd:element name="TransactionID" type="xsd:string"/>
+            <xsd:element name="Amount" type="xsd:decimal"/>
+            <xsd:element name="Currency" type="xsd:string"/>
+            <xsd:element name="Debtor" type="xsd:string"/>
+            <xsd:element name="Creditor" type="xsd:string"/>
+        </xsd:sequence>
+    </xsd:complexType>
+
+</xsd:schema>
