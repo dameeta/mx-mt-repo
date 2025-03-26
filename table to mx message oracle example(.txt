@@ -1,0 +1,12 @@
+create table transactions (
+    txn_id number primary key,
+    msg_id VARCHAR2(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    amount NUMBER(15,2),
+    currency VARCHAR2(5),
+    creditor_name VARCHAR2(100),
+    creditor_bic VARCHAR2(11));
+INSERT INTO TRANSACTIONS (txn_id,msg_id,amount,currency,creditor_name,creditor_bic)
+VALUES
+(2,'E21144',366.34,'EURO','Hari Krishna','HK38493XXX');
+COMMIT;

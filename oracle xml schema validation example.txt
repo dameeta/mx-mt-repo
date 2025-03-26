@@ -1,0 +1,85 @@
+DECLARE
+  l_schema  CLOB;
+BEGIN
+  l_schema := '<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.02"
+           targetNamespace="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.02"
+           elementFormDefault="qualified">
+    <xs:element name="Document">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="FIToFICstmrCdtTrf">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="GrpHdr">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="MsgId" type="xs:string"/>
+                                        <xs:element name="CreDtTm" type="xs:string"/>
+                                    </xs:sequence>
+                                </xs:complexType>
+                            </xs:element>
+                            <xs:element name="CdtTrfTxInf">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="IntrBkSttlmAmt" type="xs:decimal"/>
+                                        <xs:element name="Cdtr">
+                                            <xs:complexType>
+                                                <xs:sequence>
+                                                    <xs:element name="Nm" type="xs:string"/>
+                                                    <xs:element name="BIC" type="xs:string"/>
+                                                </xs:sequence>
+                                            </xs:complexType>
+                                        </xs:element>
+                                    </xs:sequence>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+</xs:schema>
+';
+   DBMS_XMLSCHEMA.registerSchema(schemaurl       => 'my_schema.xsd', 
+                                 schemadoc       => l_schema,
+                                 local           => TRUE,
+                                 gentypes        => FALSE,
+                                 gentables       => FALSE,
+                                 enablehierarchy => DBMS_XMLSCHEMA.enable_hierarchy_none); 
+END;
+/
+SELECT schema_url FROM user_xml_schemas;
+
+
+
+DECLARE
+  l_xml      CLOB;
+  l_xmltype  XMLTYPE;
+BEGIN
+
+  l_xml := '<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.02">
+    <FIToFICstmrCdtTrf>
+        <GrpHdr>
+            <MsgId>MSG123456</MsgId>
+            <CreDtTm>2024-03-25T10:00:00</CreDtTm>
+        </GrpHdr>
+        <CdtTrfTxInf>
+            <IntrBkSttlmAmt>1000.50</IntrBkSttlmAmt>
+            <Cdtr>
+                <Nm>John Doe</Nm>
+                <BIC>ABCDEFGHXXX</BIC>
+            </Cdtr>
+        </CdtTrfTxInf>
+    </FIToFICstmrCdtTrf>
+</Document>';
+
+  l_xmltype := XMLTYPE(l_xml, 'my_schema.xsd');
+  l_xmltype.schemavalidate;
+
+END;
+/
+
+ change the <Nm> to <Nm1> and run we get an error
+

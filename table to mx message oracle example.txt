@@ -1,0 +1,91 @@
+create table transactions (
+    txn_id number primary key,
+    msg_id VARCHAR2(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    amount NUMBER(15,2),
+    currency VARCHAR2(5),
+    creditor_name VARCHAR2(100),
+    creditor_bic VARCHAR2(11));
+INSERT INTO TRANSACTIONS (txn_id,msg_id,amount,currency,creditor_name,creditor_bic)
+VALUES
+(2,'E21144',366.34,'EURO','Hari Krishna','HK38493XXX');
+COMMIT;
+
+CREATE OR REPLACE PROCEDURE generate_mx_message IS
+    v_xml CLOB;
+BEGIN
+    -- Generate the XML using a nested subquery to handle XMLAGG correctly
+    SELECT 
+        XMLELEMENT("Document",
+            XMLATTRIBUTES('urn:iso:std:iso:20022:tech:xsd:pacs.008.001.02' AS "xmlns"),
+            XMLELEMENT("FIToFICstmrCdtTrf",
+                -- Group Header (Single Row)
+                (SELECT 
+                    XMLELEMENT("GrpHdr",
+                        XMLELEMENT("MsgId", msg_id),
+                        XMLELEMENT("CreDtTm", TO_CHAR(created_at, 'YYYY-MM-DD"T"HH24:MI:SS'))
+                    )
+                 FROM transactions 
+                 WHERE ROWNUM = 1),  -- Take any one row for group-level info
+
+                -- Transaction Information (Multiple Rows)
+                (SELECT 
+                    XMLAGG(
+                        XMLELEMENT("CdtTrfTxInf",
+                            XMLELEMENT("IntrBkSttlmAmt", amount),
+                            XMLELEMENT("Cdtr",
+                                XMLELEMENT("Nm", creditor_name),
+                                XMLELEMENT("BIC", creditor_bic)
+                            )
+                        )
+                    ) 
+                 FROM transactions)
+            )
+        ).getClobVal()
+    INTO v_xml
+    FROM dual;
+
+    -- Print the generated XML
+    DBMS_OUTPUT.PUT_LINE(v_xml);
+END;
+/
+
+
+SET SERVEROUTPUT ON;
+EXEC generate_mx_message;
+
+
+CREATE OR REPLACE PROCEDURE generate_and_store_mx_message IS
+    v_xml CLOB;
+BEGIN
+    -- Generate the XML
+    SELECT 
+        XMLELEMENT("Document",
+            XMLATTRIBUTES('urn:iso:std:iso:20022:tech:xsd:pacs.008.001.02' AS "xmlns"),
+            XMLELEMENT("FIToFICstmrCdtTrf",
+                XMLELEMENT("GrpHdr",
+                    XMLELEMENT("MsgId", msg_id),
+                    XMLELEMENT("CreDtTm", TO_CHAR(created_at, 'YYYY-MM-DD"T"HH24:MI:SS'))
+                ),
+                XMLAGG(
+                    XMLELEMENT("CdtTrfTxInf",
+                        XMLELEMENT("IntrBkSttlmAmt", amount),
+                        XMLELEMENT("Cdtr",
+                            XMLELEMENT("Nm", creditor_name),
+                            XMLELEMENT("BIC", creditor_bic)
+                        )
+                    )
+                )
+            )
+        ).getClobVal()
+    INTO v_xml
+    FROM transactions;
+
+    -- Store in the table
+    INSERT INTO mx_messages (message) VALUES (XMLType(v_xml));
+
+    COMMIT;
+    DBMS_OUTPUT.PUT_LINE('MX message stored successfully.');
+END;
+/
+

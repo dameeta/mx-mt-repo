@@ -1,0 +1,218 @@
+Altova 
+ how to automate the validation which is done through altova
+
+To be covered:  
+Processing an MX Message in a Java spring boot with oracle pl sql with validators
+and processing to java objects from mx message 
+and testing the rest api end points
+Translators to be included from MT to MX
+
+
+
+Use Case: Processing an MX Message in a Java + Oracle Environment
+Scenario:
+A bank needs to process an MX payment message (ISO 20022 - pacs.008), store it in an Oracle database, and validate the transaction.
+
+Step 1: Setup Database (Oracle)
+Create an Oracle table to store MX message details.
+
+sql
+
+
+CREATE TABLE MX_MESSAGES (
+    MESSAGE_ID NUMBER PRIMARY KEY,
+    SENDER_BANK VARCHAR2(50),
+    RECEIVER_BANK VARCHAR2(50),
+    AMOUNT NUMBER(15,2),
+    CURRENCY VARCHAR2(3),
+    STATUS VARCHAR2(20),
+    MESSAGE_XML CLOB,
+    CREATED_AT TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+MESSAGE_ID: Unique message identifier
+SENDER_BANK, RECEIVER_BANK: Participating banks
+AMOUNT, CURRENCY: Transaction details
+STATUS: Tracks processing state (Received, Processed, Failed)
+MESSAGE_XML: Stores the original MX XML message
+
+Step 2: Create Java Model Class
+Define a Java class to map MX message data.
+
+java
+
+
+public class MXMessage {
+    private int messageId;
+    private String senderBank;
+    private String receiverBank;
+    private double amount;
+    private String currency;
+    private String status;
+    private String messageXml;
+
+    // Constructors, Getters, and Setters
+}
+Step 3: Parse MX XML (pacs.008) in Java
+A sample MX pacs.008 message (Customer Credit Transfer XML):
+
+xml
+
+
+<pacs.008>
+    <FIToFICstmrCdtTrf>
+        <GrpHdr>
+            <MsgId>123456</MsgId>
+            <CreDtTm>2025-03-21T10:30:00</CreDtTm>
+        </GrpHdr>
+        <CdtTrfTxInf>
+            <PmtId>
+                <InstrId>INST123</InstrId>
+            </PmtId>
+            <IntrBkSttlmAmt Ccy="USD">5000.00</IntrBkSttlmAmt>
+            <Dbtr>
+                <Nm>Bank A</Nm>
+            </Dbtr>
+            <Cdtr>
+                <Nm>Bank B</Nm>
+            </Cdtr>
+        </CdtTrfTxInf>
+    </FIToFICstmrCdtTrf>
+</pacs.008>
+
+Java Code to Parse XML
+
+Use JAXB (Java API for XML Binding) to read MX XML.
+
+java
+
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import org.w3c.dom.*;
+
+public class MXParser {
+    public static MXMessage parseMXMessage(String xmlFilePath) {
+        try {
+            File xmlFile = new File(xmlFilePath);
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document document = builder.parse(xmlFile);
+            document.getDocumentElement().normalize();
+
+            // Extract values from XML
+            String messageId = document.getElementsByTagName("MsgId").item(0).getTextContent();
+            String senderBank = document.getElementsByTagName("Nm").item(0).getTextContent();
+            String receiverBank = document.getElementsByTagName("Nm").item(1).getTextContent();
+            String amount = document.getElementsByTagName("IntrBkSttlmAmt").item(0).getTextContent();
+            String currency = document.getElementsByTagName("IntrBkSttlmAmt").item(0).getAttributes()
+                                        .getNamedItem("Ccy").getTextContent();
+
+            // Create MXMessage Object
+            MXMessage mxMessage = new MXMessage();
+            mxMessage.setMessageId(Integer.parseInt(messageId));
+            mxMessage.setSenderBank(senderBank);
+            mxMessage.setReceiverBank(receiverBank);
+            mxMessage.setAmount(Double.parseDouble(amount));
+            mxMessage.setCurrency(currency);
+            mxMessage.setStatus("Received");
+            mxMessage.setMessageXml(xmlFilePath);
+
+            return mxMessage;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+}
+Explanation:
+Reads pacs.008 XML file.
+Extracts message details (MsgId, Sender, Receiver, Amount, Currency).
+
+Creates an MXMessage object.
+
+Step 4: Store MX Message in Oracle
+JDBC Code to Insert Data into Oracle DB
+java
+
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+
+public class MXDatabaseHandler {
+    private static final String URL = "jdbc:oracle:thin:@localhost:1521:xe";
+    private static final String USER = "bankuser";
+    private static final String PASSWORD = "password";
+
+    public static void saveMXMessage(MXMessage mxMessage) {
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+            String sql = "INSERT INTO MX_MESSAGES (MESSAGE_ID, SENDER_BANK, RECEIVER_BANK, AMOUNT, CURRENCY, STATUS, MESSAGE_XML) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            pstmt.setInt(1, mxMessage.getMessageId());
+            pstmt.setString(2, mxMessage.getSenderBank());
+            pstmt.setString(3, mxMessage.getReceiverBank());
+            pstmt.setDouble(4, mxMessage.getAmount());
+            pstmt.setString(5, mxMessage.getCurrency());
+            pstmt.setString(6, mxMessage.getStatus())
+            pstmt.setString(7, mxMessage.getMessageXml());
+
+            int rowsInserted = pstmt.executeUpdate();
+            if (rowsInserted > 0) {
+                System.out.println("MX Message successfully saved to database.");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+Explanation:
+Uses JDBC to connect to Oracle DB.
+Executes an INSERT query to save MX message details.
+Step 5: End-to-End Execution
+Main Class to Run the Process
+java
+
+
+public class MXProcessingApp {
+    public static void main(String[] args) {
+        String xmlFilePath = "pacs008.xml";  // Path to MX XML file
+
+        // Parse MX Message
+        MXMessage mxMessage = MXParser.parseMXMessage(xmlFilePath);
+
+        if (mxMessage != null) {
+            // Store in Database
+            MXDatabaseHandler.saveMXMessage(mxMessage);
+        } else {
+            System.out.println("Error in processing MX message.");
+        }
+    }
+}
+Execution Flow:
+Reads an MX XML file.
+Parses the XML content into a Java object.
+Stores message data in an Oracle database.
+Confirms successful processing.
+Step 6: Query the Database
+Verify if the message is stored in the Oracle DB.
+
+sql
+
+
+SELECT * FROM MX_MESSAGES;
+Expected Output:
+
+MESSAGE_ID	SENDER_BANK	RECEIVER_BANK	AMOUNT	CURRENCY	STATUS	MESSAGE_XML
+123456	Bank A	Bank B	5000.00	USD	Received	pacs008.xml
+Conclusion
+✅ MX Message Processing (ISO 20022 - pacs.008) in Java + Oracle
+
+Parsed an MX XML message in Java.
+Stored it into an Oracle database using JDBC.
+Ensured structured financial message processing.
+This can be extended to include:
+
+Message validation,
+Real-time API integration,
+Error handling & reconciliation,
+MT to MX conversion

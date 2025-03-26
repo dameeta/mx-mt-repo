@@ -1,0 +1,150 @@
+Step 1: Setup spring boot project
+
+Step 2: Add the dependency
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webflux</artifactId>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/jakarta.xml.bind/jakarta.xml.bind-api -->
+		<dependency>
+			<groupId>jakarta.xml.bind</groupId>
+			<artifactId>jakarta.xml.bind-api</artifactId>
+			<version>3.0.1</version>
+		</dependency>
+
+		<!-- https://mvnrepository.com/artifact/org.glassfish.jaxb/jaxb-runtime -->
+		<dependency>
+			<groupId>org.glassfish.jaxb</groupId>
+			<artifactId>jaxb-runtime</artifactId>
+			<version>3.0.1</version>
+		</dependency>
+
+		<!-- https://mvnrepository.com/artifact/jakarta.validation/jakarta.validation-api -->
+		<dependency>
+			<groupId>jakarta.validation</groupId>
+			<artifactId>jakarta.validation-api</artifactId>
+			<version>3.0.2</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-devtools</artifactId>
+			<scope>runtime</scope>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.projectreactor</groupId>
+			<artifactId>reactor-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/javax.xml.registry/javax.xml.registry-api -->
+		<dependency>
+			<groupId>javax.xml.registry</groupId>
+			<artifactId>javax.xml.registry-api</artifactId>
+			<version>1.0.8</version>
+		</dependency>
+	</dependencies>
+
+Step 3 Creating the model classes
+D:\mx-message-training\demo-mx-message>xjc -d src/main/java -p com.example.mxmessage.schema src/main/resources/xsd/mx-message.xsd
+
+Step 4: Parse the MX message
+
+package com.example.mxmessage.schema.service;
+
+import jakarta.xml.bind.JAXBContext;
+import jakarta.xml.bind.JAXBException;
+import jakarta.xml.bind.Unmarshaller;
+import org.springframework.stereotype.Service;
+
+import java.io.StringReader;
+
+@Service
+public class MxMessageService {
+    public <T> T parseMessage(String xml,Class<T> myclass) throws JAXBException{
+        JAXBContext context = JAXBContext.newInstance(myclass);
+        Unmarshaller unmarshaller = context.createUnmarshaller();
+        return (T) unmarshaller.unmarshal(new StringReader(xml));
+        
+    }
+}
+
+Step 5: Validate the MX message
+
+package com.example.mxmessage.schema.service;
+
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
+import jakarta.validation.ValidatorFactory;
+import org.springframework.stereotype.Service;
+
+@Service
+public class ValidationService {
+private final Validator validator;
+
+    public ValidationService() {
+        ValidatorFactory factory= Validation.buildDefaultValidatorFactory();
+        this.validator = factory.getValidator();
+    }
+}
+
+Step 6: Controller to handle MX Message
+
+package com.example.mxmessage.schema.controller;
+
+import com.example.mxmessage.schema.Payment;
+import com.example.mxmessage.schema.service.MxMessageService;
+import com.example.mxmessage.schema.service.ValidationService;
+import jakarta.validation.ConstraintViolation;
+import jakarta.xml.bind.JAXBException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Set;
+
+@RestController
+@RequestMapping("/mx")
+public class MxMessageController {
+    @Autowired
+    private MxMessageService mxMessageService;
+    @Autowired
+    private ValidationService validationService;
+
+    @PostMapping("/parse")
+    public String parseAndValidate(@RequestBody String xml) throws JAXBException {
+        try{
+           var message = mxMessageService.parseMessage(xml, Payment.class);
+            Set<ConstraintViolation<Payment>>violations=validationService.validate(message);
+            if(!violations.isEmpty()){
+                StringBuilder errors = new StringBuilder();
+                for(var violation : violations)
+                {
+                    errors.append(violation.getPropertyPath()).append(": ").append(violation.getMessage()).append("\n");
+                    
+                }
+                return "Validation failed:\n" + errors;
+            }
+            return  "Message parsed and validated successfully!!";
+        }
+        catch (Exception e)
+        {
+            return "Error:" + e.getMessage();
+        }
+
+    }
+
+}
+
+Step 7

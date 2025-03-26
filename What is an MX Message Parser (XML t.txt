@@ -1,0 +1,231 @@
+What is an MX Message Parser (XML to Java)?
+An MX Message Parser is a system that converts MX messages (in XML format) into Java objects. MX messages are ISO 20022-compliant financial messages used for payment transactions, securities trading, and other banking operations.
+
+In a Spring Boot application, an MX Message Parser typically:
+
+Receives an MX message in XML format (from an API, file, or message queue).
+
+Parses the XML into Java objects using Jackson XML, JAXB, or DOM Parser.
+
+Processes the extracted data for validation, storage, or further transformation.
+
+Example: Parsing MX XML to Java in Spring Boot
+Here’s a simple example where we parse an MX message (ISO 20022 format) from XML to Java.
+
+1. XML Format of an MX Message (Example: pain.001 - Payment Initiation Message)
+xml
+
+
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.03">
+    <CstmrCdtTrfInitn>
+        <GrpHdr>
+            <MsgId>123456789</MsgId>
+            <CreDtTm>2025-03-24T10:30:00</CreDtTm>
+            <NbOfTxs>1</NbOfTxs>
+            <CtrlSum>1000.00</CtrlSum>
+        </GrpHdr>
+        <PmtInf>
+            <PmtInfId>Pmt123</PmtInfId>
+            <PmtMtd>TRF</PmtMtd>
+            <Dbtr>
+                <Nm>John Doe</Nm>
+            </Dbtr>
+            <DbtrAcct>
+                <Id>
+                    <IBAN>DE89370400440532013000</IBAN>
+                </Id>
+            </DbtrAcct>
+            <CdtTrfTxInf>
+                <Cdtr>
+                    <Nm>Jane Smith</Nm>
+                </Cdtr>
+                <CdtrAcct>
+                    <Id>
+                        <IBAN>FR7630004000031234567890185</IBAN>
+                    </Id>
+                </CdtrAcct>
+                <Amt>
+                    <InstdAmt Ccy="EUR">1000.00</InstdAmt>
+                </Amt>
+            </CdtTrfTxInf>
+        </PmtInf>
+    </CstmrCdtTrfInitn>
+</Document>
+2. Java Model for MX Message Parsing
+Create MxMessage Model Using JAXB
+java
+
+
+package com.example.mxparser.model;
+
+import jakarta.xml.bind.annotation.*;
+
+@XmlRootElement(name = "Document", namespace = "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03")
+@XmlAccessorType(XmlAccessType.FIELD)
+public class MxMessage {
+
+    @XmlElement(name = "CstmrCdtTrfInitn")
+    private CustomerCreditTransfer customerCreditTransfer;
+
+    public CustomerCreditTransfer getCustomerCreditTransfer() {
+        return customerCreditTransfer;
+    }
+
+    public void setCustomerCreditTransfer(CustomerCreditTransfer customerCreditTransfer) {
+        this.customerCreditTransfer = customerCreditTransfer;
+    }
+}
+
+@XmlAccessorType(XmlAccessType.FIELD)
+class CustomerCreditTransfer {
+    @XmlElement(name = "GrpHdr")
+    private GroupHeader groupHeader;
+
+    @XmlElement(name = "PmtInf")
+    private PaymentInformation paymentInformation;
+
+    public GroupHeader getGroupHeader() { return groupHeader; }
+    public void setGroupHeader(GroupHeader groupHeader) { this.groupHeader = groupHeader; }
+
+    public PaymentInformation getPaymentInformation() { return paymentInformation; }
+    public void setPaymentInformation(PaymentInformation paymentInformation) { this.paymentInformation = paymentInformation; }
+}
+
+@XmlAccessorType(XmlAccessType.FIELD)
+class GroupHeader {
+    @XmlElement(name = "MsgId")
+    private String messageId;
+
+    @XmlElement(name = "CreDtTm")
+    private String creationDateTime;
+
+    public String getMessageId() { return messageId; }
+    public void setMessageId(String messageId) { this.messageId = messageId; }
+
+    public String getCreationDateTime() { return creationDateTime; }
+    public void setCreationDateTime(String creationDateTime) { this.creationDateTime = creationDateTime; }
+}
+
+@XmlAccessorType(XmlAccessType.FIELD)
+class PaymentInformation {
+    @XmlElement(name = "PmtInfId")
+    private String paymentInfoId;
+
+    @XmlElement(name = "Dbtr")
+    private Debtor debtor;
+
+    public String getPaymentInfoId() { return paymentInfoId; }
+    public void setPaymentInfoId(String paymentInfoId) { this.paymentInfoId = paymentInfoId; }
+
+    public Debtor getDebtor() { return debtor; }
+    public void setDebtor(Debtor debtor) { this.debtor = debtor; }
+}
+
+@XmlAccessorType(XmlAccessType.FIELD)
+class Debtor {
+    @XmlElement(name = "Nm")
+    private String name;
+
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+}
+3. Service to Parse MX XML to Java
+java
+
+
+package com.example.mxparser.service;
+
+import com.example.mxparser.model.MxMessage;
+import jakarta.xml.bind.JAXBContext;
+import jakarta.xml.bind.JAXBException;
+import jakarta.xml.bind.Unmarshaller;
+import org.springframework.stereotype.Service;
+
+import java.io.StringReader;
+
+@Service
+public class MxMessageParserService {
+
+    public MxMessage parseXmlToJava(String xml) {
+        try {
+            JAXBContext jaxbContext = JAXBContext.newInstance(MxMessage.class);
+            Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
+            return (MxMessage) unmarshaller.unmarshal(new StringReader(xml));
+        } catch (JAXBException e) {
+            throw new RuntimeException("Error parsing MX XML", e);
+        }
+    }
+}
+4. REST Controller to Accept XML Input
+java
+
+
+package com.example.mxparser.controller;
+
+import com.example.mxparser.model.MxMessage;
+import com.example.mxparser.service.MxMessageParserService;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/mx")
+public class MxMessageController {
+
+    private final MxMessageParserService mxMessageParserService;
+
+    public MxMessageController(MxMessageParserService mxMessageParserService) {
+        this.mxMessageParserService = mxMessageParserService;
+    }
+
+    @PostMapping(value = "/parse", consumes = MediaType.APPLICATION_XML_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public MxMessage parseMxMessage(@RequestBody String xmlPayload) {
+        return mxMessageParserService.parseXmlToJava(xmlPayload);
+    }
+}
+5. Test the MX Parser
+Send a POST request to:
+bash
+
+
+http://localhost:8080/api/mx/parse
+With this XML payload in the request body:
+
+xml
+
+
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.03">
+    <CstmrCdtTrfInitn>
+        <GrpHdr>
+            <MsgId>123456789</MsgId>
+            <CreDtTm>2025-03-24T10:30:00</CreDtTm>
+        </GrpHdr>
+        <PmtInf>
+            <PmtInfId>Pmt123</PmtInfId>
+            <Dbtr>
+                <Nm>John Doe</Nm>
+            </Dbtr>
+        </PmtInf>
+    </CstmrCdtTrfInitn>
+</Document>
+Expected JSON Response:
+json
+
+
+{
+    "customerCreditTransfer": {
+        "groupHeader": {
+            "messageId": "123456789",
+            "creationDateTime": "2025-03-24T10:30:00"
+        },
+        "paymentInformation": {
+            "paymentInfoId": "Pmt123",
+            "debtor": {
+                "name": "John Doe"
+            }
+        }
+    }
+}
+Conclusion
+🔹 MX Message Parsing is essential for financial transactions and ISO 20022 processing.
+🔹 Using JAXB and Jackson XML, we can convert MX messages from XML to Java objects.
+🔹 This approach is commonly used in banks, payment gateways, and fintech applications
