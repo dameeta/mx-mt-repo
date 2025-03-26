@@ -1,0 +1,108 @@
+Step-by-Step Guide: Load Testing for High-Volume MX Message Processing Systems
+Overview
+Load testing evaluates system performance under high traffic to ensure scalability and stability. We'll use Apache JMeter to test a Spring Boot API that processes MX messages.
+
+Step 1: Set Up Your Spring Boot MX Message Processing System
+Ensure you have an API that accepts MX messages and validates them using an XSD schema. If you haven’t already set up your system, follow this guide to create an MX Message API.
+
+Step 2: Install Apache JMeter
+Apache JMeter is an open-source tool for load testing.
+
+Installation Steps:
+Download JMeter from Apache JMeter.
+
+Extract and navigate to the bin directory.
+
+Run JMeter:
+
+On Windows: Run jmeter.bat
+
+On Mac/Linux: Run ./jmeter.sh
+
+Step 3: Create a Load Test Plan in JMeter
+Open JMeter.
+
+Create a New Test Plan:
+
+Go to File > New.
+
+Add a Thread Group (Simulates multiple users):
+
+Right-click Test Plan > Add > Threads (Users) > Thread Group.
+
+Set:
+
+Number of Threads (Users): 1000 (Simulates 1000 users)
+
+Ramp-Up Period (seconds): 10 (Users start over 10 seconds)
+
+Loop Count: 10 (Each user sends 10 requests)
+
+Step 4: Configure an HTTP Request for MX Message API
+Right-click Thread Group > Add > Sampler > HTTP Request.
+
+Configure:
+
+Server Name: localhost
+
+Port Number: 8080
+
+Method: POST
+
+Path: /api/mx/validate
+
+Body Data (Add a sample XML payload):
+
+xml
+
+
+<MXMessage>
+    <MessageID>12345</MessageID>
+    <Sender>BankA</Sender>
+    <Receiver>BankB</Receiver>
+    <Amount>1000.50</Amount>
+</MXMessage>
+Content-Type: application/xml
+
+Step 5: Add a Listener to View Results
+Right-click Thread Group > Add > Listener > View Results Tree.
+
+Also, add Summary Report for performance metrics.
+
+Step 6: Run the Load Test
+Click the Start button (green play icon).
+
+Monitor results in:
+
+View Results Tree (Check request/response details).
+
+Summary Report (View throughput, error rate, response time).
+
+Step 7: Analyze Results
+Key Metrics:
+Throughput: Number of requests processed per second.
+
+Response Time: Average time per request.
+
+Error Rate: Percentage of failed requests.
+
+CPU/Memory Usage: Use top (Linux/Mac) or Task Manager (Windows).
+
+Example Results:
+Metric	Value
+Requests Sent	10,000
+Average Response Time	150ms
+Error Rate	0.5%
+Throughput	800 req/sec
+Step 8: Optimize Performance
+If Load Test Fails or API Slows Down:
+✅ Increase Thread Pool in application.properties:
+
+properties
+
+
+server.tomcat.max-threads=200
+✅ Enable Caching (Use Redis, Ehcache).
+✅ Optimize Database Queries if MX messages are stored.
+✅ Use Load Balancing (e.g., Nginx, AWS ELB).
+
